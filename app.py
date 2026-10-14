@@ -6,14 +6,7 @@ import shap
 import matplotlib.pyplot as plt
 from sklearn.metrics import classification_report, roc_auc_score, average_precision_score
 
-# ==========================================
-# PAGE CONFIG — must be the FIRST Streamlit command
-# ==========================================
 st.set_page_config(page_title="FraudGuard", page_icon="🛡️", layout="wide")
-
-# ==========================================
-# CACHED RESOURCES (loaded once, reused on every rerun)
-# ==========================================
 
 @st.cache_resource(show_spinner="Loading model...")
 def load_resources():
@@ -44,21 +37,14 @@ def get_test_predictions():
 model, threshold, explainer = load_resources()
 X_test, y_test = load_test_data()
 
-FEATURES = list(X_test.columns)   # exact training column order
+FEATURES = list(X_test.columns)
 
-# ==========================================
-# HEADER
-# ==========================================
 st.title("🛡️ FraudGuard — Credit Card Fraud Detection with XAI")
 st.caption(
     f"XGBoost model · Decision threshold: **{threshold:.4f}** "
     f"(tuned on the PR-curve for recall ≥ 0.80)"
 )
 
-# ==========================================
-# HUMAN-READABLE LABELS
-# V1..V28 are PCA-anonymized by design -> no business names exist.
-# ==========================================
 FEATURE_LABELS = {
     'Hour': 'Time of day',
     'Log_Amount': 'Transaction amount',
@@ -73,10 +59,6 @@ def amount_to_dollars(log_amount):
     """Model works with log1p internally; humans need dollars."""
     return np.expm1(float(log_amount))
 
-
-# ==========================================
-# SIDEBAR: INPUT
-# ==========================================
 st.sidebar.header("Choose a transaction")
 
 mode = st.sidebar.radio(
@@ -88,16 +70,14 @@ mode = st.sidebar.radio(
 if mode == "📂 Real examples from dataset":
     proba_all = get_test_predictions()
 
-    # 8 confident frauds + 8 confident legits = best cases for a live demo
     fraud_pool = X_test.index[(y_test == 1) & (proba_all > 0.9)][:8].tolist()
     legit_pool = X_test.index[(y_test == 0) & (proba_all < 0.05)][:8].tolist()
     pool = fraud_pool + legit_pool
 
-    if not pool:   # safety net: never crash on an empty pool
+    if not pool:
         st.sidebar.error("No confident examples found in the test set.")
         st.stop()
 
-    # Select by position, not by label text (labels can collide)
     pos = st.sidebar.selectbox(
         "Transaction",
         range(len(pool)),
@@ -112,7 +92,6 @@ if mode == "📂 Real examples from dataset":
     st.sidebar.caption(f"Ground truth: **{'FRAUD' if y_test[row_idx] == 1 else 'LEGIT'}**")
 
 else:
-    # What-if mode: start from a REAL transaction (fraud or legit), change what a human understands
     st.sidebar.caption("Pick a base transaction, then change amount and time.")
 
     proba_all = get_test_predictions()
@@ -141,25 +120,19 @@ else:
                                      value=float(amount_to_dollars(row['Log_Amount'])), step=25.0)
     hour = st.sidebar.slider("Hour of day", 0, 23, int(row['Hour']))
 
-    row['Log_Amount'] = np.log1p(amount)   # model works with log internally
+    row['Log_Amount'] = np.log1p(amount)
     row['Hour'] = hour
 
     with st.sidebar.expander("⚙️ Advanced: PCA features V1–V28"):
         st.caption("Anonymized behavioural signals. Edit only if you know what you are doing.")
         for f in [c for c in FEATURES if c.startswith('V')]:
-            # key includes base_pos so widgets RESET when base changes
             row[f] = st.number_input(f, value=float(row[f]), format="%.4f",
                                      key=f"adv_{base_pos}_{f}")
 
-
-# ==========================================
-# EXPLAIN IN PLAIN LANGUAGE
-# ==========================================
 def explain_in_words(sv_row, row, top_n=4):
     """Turn SHAP values into sentences a non-ML person can read."""
-    # base_values can be a scalar (single row) or an array (batch) -> normalize
     base = float(np.atleast_1d(sv_row.base_values).ravel()[0])
-    values = np.atleast_2d(sv_row.values)[0]   # ensure shape (n_features,)
+    values = np.atleast_2d(sv_row.values)[0]
 
     contrib = sorted(
         zip(FEATURES, values),
@@ -182,11 +155,8 @@ def explain_in_words(sv_row, row, top_n=4):
 
     return lines, base
 
-# ==========================================
-# MAIN: PREDICTION + EXPLANATION
-# ==========================================
 if st.sidebar.button("🔍 Run fraud check", type="primary"):
-    df_row = pd.DataFrame([row])[FEATURES]      # enforce training column order
+    df_row = pd.DataFrame([row])[FEATURES]
     proba = float(model.predict_proba(df_row)[0, 1])
     is_fraud = proba >= threshold
 
@@ -209,7 +179,6 @@ if st.sidebar.button("🔍 Run fraud check", type="primary"):
     st.subheader("Why did the model decide this?")
     sv = explainer(df_row)
 
-    # Single-row Explanation: use sv[0] for waterfall
     lines, base = explain_in_words(sv[0], row)
     st.markdown(f"Baseline risk for any transaction: **{base:.2%}**")
     for line in lines:
@@ -222,12 +191,8 @@ if st.sidebar.button("🔍 Run fraud check", type="primary"):
         st.pyplot(plt.gcf())
         plt.close()
 
-
-# ==========================================
-# MODEL METRICS IN BUSINESS LANGUAGE
-# ==========================================
 with st.expander(f"📊 How good is this model? (test set, {len(X_test):,} transactions)"):
-    y_proba = get_test_predictions()            # cached, not recomputed
+    y_proba = get_test_predictions()
     y_pred = (y_proba >= threshold).astype(int)
 
     tp = int(((y_pred == 1) & (y_test == 1)).sum())
@@ -235,7 +200,6 @@ with st.expander(f"📊 How good is this model? (test set, {len(X_test):,} trans
     fn = int(((y_pred == 0) & (y_test == 1)).sum())
     total_fraud = int((y_test == 1).sum())
 
-    # Guard against ZeroDivisionError if the model flags nothing
     precision_str = f"{tp / (tp + fp):.0%}" if (tp + fp) > 0 else "n/a"
     recall_str = f"{tp / total_fraud:.0%}" if total_fraud > 0 else "n/a"
 
