@@ -1,6 +1,6 @@
 # 🛡️ FraudGuard: credit card fraud detection with explainable AI
 
-![Python](https://img.shields.io/badge/Python-3.11-blue) ![XGBoost](https://img.shields.io/badge/XGBoost-model-green) ![SHAP](https://img.shields.io/badge/SHAP-explainability-orange) ![Streamlit](https://img.shields.io/badge/Streamlit-app-red)
+![GitHub release](https://img.shields.io/github/v/release/Zh09-hak/Fraud_Detection) ![Python](https://img.shields.io/badge/Python-3.11-blue) ![XGBoost](https://img.shields.io/badge/XGBoost-model-green) ![SHAP](https://img.shields.io/badge/SHAP-explainability-orange) ![Streamlit](https://img.shields.io/badge/Streamlit-app-red) [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)]([https://ТВОЯ_ССЫЛКА.streamlit.app/](https://zh-fraud-detection.streamlit.app/))
 
 A fraud detector that does not just say **"block"**. It also explains **why**.
 End-to-end pipeline: EDA → baseline → XGBoost → threshold tuning → SHAP explanations → Streamlit app.
