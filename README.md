@@ -101,7 +101,7 @@ Reading a waterfall: it starts from the average model output and shows how each 
 
 Pick a real transaction (or build a what-if scenario) → get a verdict (**BLOCK / APPROVE**), the fraud score, a plain-language explanation of the top factors, the full SHAP waterfall, and model quality metrics in business language.
 
-![app](app_screenshots/custom.png)
+![app](app_screenshots/Сustom.png)
 
 ## Run it
 
