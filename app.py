@@ -1,4 +1,5 @@
 import streamlit as st
+from scipy.special import expit
 import pandas as pd
 import numpy as np
 import joblib
@@ -70,19 +71,26 @@ mode = st.sidebar.radio(
 if mode == "📂 Real examples from dataset":
     proba_all = get_test_predictions()
 
-    fraud_pool = X_test.index[(y_test == 1) & (proba_all > 0.9)][:8].tolist()
+    fraud_pool = X_test.index[(y_test == 1) & (proba_all >= threshold)][:8].tolist()
     legit_pool = X_test.index[(y_test == 0) & (proba_all < 0.05)][:8].tolist()
-    pool = fraud_pool + legit_pool
+    miss_pool = X_test.index[(y_test == 1) & (proba_all < threshold)][:1].tolist()
+    pool = fraud_pool + legit_pool + miss_pool
 
     if not pool:
         st.sidebar.error("No confident examples found in the test set.")
         st.stop()
 
+    def pool_tag(i):
+        r = pool[i]
+        if r in miss_pool:
+            return "⚠️ FRAUD (model misses)"
+        return "🚨 FRAUD" if y_test[r] == 1 else "✅ LEGIT"
+
     pos = st.sidebar.selectbox(
         "Transaction",
         range(len(pool)),
         format_func=lambda i: (
-            f"{'🚨 FRAUD' if y_test[pool[i]] == 1 else '✅ LEGIT'} · row {pool[i]} · "
+            f"{pool_tag(i)} · row {pool[i]} · "
             f"${amount_to_dollars(X_test.loc[pool[i], 'Log_Amount']):,.2f} · "
             f"{int(X_test.loc[pool[i], 'Hour'])}:00"
         ),
@@ -96,7 +104,7 @@ else:
 
     proba_all = get_test_predictions()
     whatif_pool = (
-        X_test.index[(y_test == 1) & (proba_all > 0.9)][:20].tolist()
+        X_test.index[(y_test == 1) & (proba_all >= threshold)][:20].tolist()
         + X_test.index[(y_test == 0) & (proba_all < 0.05)][:20].tolist()
     )
 
@@ -118,31 +126,28 @@ else:
 
     amount = st.sidebar.number_input("Amount, $", min_value=0.0,
                                      value=float(amount_to_dollars(row['Log_Amount'])), step=25.0)
-    hour = st.sidebar.slider("Hour of day", 0, 23, int(row['Hour']))
+    hour = st.sidebar.slider("Hour (relative)", 0, 23, int(row['Hour']))
 
     row['Log_Amount'] = np.log1p(amount)
     row['Hour'] = hour
 
     with st.sidebar.expander("⚙️ Advanced: PCA features V1–V28"):
-        st.caption("Anonymized behavioural signals. Edit only if you know what you are doing.")
+        st.caption("Impacts are in log-odds (SHAP units for XGBoost): positive = toward fraud, negative = toward legit.")
         for f in [c for c in FEATURES if c.startswith('V')]:
             row[f] = st.number_input(f, value=float(row[f]), format="%.4f",
                                      key=f"adv_{base_pos}_{f}")
 
 def explain_in_words(sv_row, row, top_n=4):
     """Turn SHAP values into sentences a non-ML person can read."""
-    base = float(np.atleast_1d(sv_row.base_values).ravel()[0])
+    base_log = float(np.atleast_1d(sv_row.base_values).ravel()[0])
+    base = float(expit(base_log))
     values = np.atleast_2d(sv_row.values)[0]
 
-    contrib = sorted(
-        zip(FEATURES, values),
-        key=lambda x: abs(x[1]),
-        reverse=True,
-    )[:top_n]
+    contrib = sorted(zip(FEATURES, values), key=lambda x: abs(x[1]), reverse=True)[:top_n]
 
     lines = []
     for feat, shap_val in contrib:
-        direction = "⬆️ raised the risk" if shap_val > 0 else "⬇️ lowered the risk"
+        direction = "⬆️ pushed toward fraud" if shap_val > 0 else "⬇️ pushed toward legit"
 
         if feat == 'Log_Amount':
             detail = f"${amount_to_dollars(row['Log_Amount']):,.2f}"
@@ -151,7 +156,7 @@ def explain_in_words(sv_row, row, top_n=4):
         else:
             detail = f"{row[feat]:.2f} std"
 
-        lines.append(f"**{label_for(feat)}** = {detail} → {direction} by `{abs(shap_val):.3f}`")
+        lines.append(f"**{label_for(feat)}** = {detail} → {direction} (impact `{shap_val:+.2f}`)")
 
     return lines, base
 
@@ -162,28 +167,28 @@ if st.sidebar.button("🔍 Run fraud check", type="primary"):
 
     if is_fraud:
         st.error(
-            f"🚨 **BLOCK THIS TRANSACTION** — fraud probability **{proba:.2%}** "
+            f"🚨 **BLOCK THIS TRANSACTION** — fraud score **{proba:.2%}** "
             f"(threshold {threshold:.2%})"
         )
     else:
         st.success(
-            f"✅ **APPROVE** — fraud probability **{proba:.2%}** "
+            f"✅ **APPROVE** — fraud score **{proba:.2%}** "
             f"(threshold {threshold:.2%})"
         )
 
     c1, c2, c3 = st.columns(3)
     c1.metric("Amount", f"${amount_to_dollars(row['Log_Amount']):,.2f}")
-    c2.metric("Time", f"{int(row['Hour'])}:00")
-    c3.metric("Fraud probability", f"{proba:.2%}")
+    c2.metric("Hour (relative)", f"{int(row['Hour'])}:00")
+    c3.metric("Fraud score", f"{proba:.2%}")
 
     st.subheader("Why did the model decide this?")
     sv = explainer(df_row)
 
     lines, base = explain_in_words(sv[0], row)
-    st.markdown(f"Baseline risk for any transaction: **{base:.2%}**")
+    st.markdown(f"Starting point (average transaction score): **{base:.2%}**")
     for line in lines:
         st.markdown(f"- {line}")
-    st.markdown(f"**→ Final risk: {proba:.2%}**")
+    st.markdown(f"**→ Final fraud score: {proba:.2%}**")
 
     with st.expander("📈 Full technical explanation (SHAP waterfall)"):
         fig, ax = plt.subplots(figsize=(10, 6))
