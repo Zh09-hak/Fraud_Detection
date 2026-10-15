@@ -125,7 +125,7 @@ To reproduce everything from scratch: put `creditcard.csv` into `data/`, then ru
 ├── artifacts/         # trained model, threshold, data splits
 ├── plots/             # EDA and SHAP figures
 ├── app_screenshots/   # app screenshots
-├── Demo.mp4           # 30-second demo
+├── Demo.mp4           # 47-second demo
 └── requirements.txt
 ```
 
