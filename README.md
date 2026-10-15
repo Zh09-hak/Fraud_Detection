@@ -5,7 +5,7 @@
 A fraud detector that does not just say **"block"**. It also explains **why**.
 End-to-end pipeline: EDA → baseline → XGBoost → threshold tuning → SHAP explanations → Streamlit app.
 
-**🎬 Demo:** [`Demo.mp4`](Demo.mp4) (30 seconds)
+**🎬 Demo:** [`Demo.mp4`](Demo.mp4) (47 seconds)
 
 ---
 
