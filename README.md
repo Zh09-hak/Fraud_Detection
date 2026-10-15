@@ -5,7 +5,7 @@
 A fraud detector that does not just say **"block"**. It also explains **why**.
 End-to-end pipeline: EDA → baseline → XGBoost → threshold tuning → SHAP explanations → Streamlit app.
 
-**🎬 Demo:** [`Demo.mp4`](Demo.mp4) (47 seconds)
+**🚀 Live demo:** https://zh-fraud-detection.streamlit.app/ · **🎬 Video:** [`Demo.mp4`](Demo.mp4) (47 seconds)
 
 ---
 
@@ -100,6 +100,7 @@ Reading a waterfall: it starts from the average model output and shows how each 
 ## Streamlit app
 
 Pick a real transaction (or build a what-if scenario) → get a verdict (**BLOCK / APPROVE**), the fraud score, a plain-language explanation of the top factors, the full SHAP waterfall, and model quality metrics in business language.
+Try it live: **https://zh-fraud-detection.streamlit.app/** (the free tier may need a few seconds to wake up).
 
 ## Run it
 
